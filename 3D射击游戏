@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D网球砸怪兽游戏</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+        }
+        #info {
+            display: none;
+        }
+        #fire-button {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 80px;
+            height: 80px;
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 16px;
+        }
+        #auto-aim-button {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 80px;
+            height: 80px;
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 16px;
+        }
+        #ammo-count {
+            position: absolute;
+            top: 50px;
+            width: 100%;
+            text-align: center;
+            z-index: 100;
+            display: block;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.8);
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            border: 2px solid white;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #crosshair::before,
+        #crosshair::after {
+            content: '';
+            position: absolute;
+            background-color: white;
+        }
+        #crosshair::before {
+            width: 2px;
+            height: 10px;
+        }
+        #crosshair::after {
+            width: 10px;
+            height: 2px;
+        }
+        #ammo-prompt {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+            text-align: center;
+            display: none;
+        }
+        #ammo-prompt input {
+            margin-top: 10px;
+            padding: 5px;
+        }
+        #ammo-prompt button {
+            margin-top: 10px;
+            padding: 5px 10px;
+        }
+        #rules-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+            text-align: center;
+            display: none;
+        }
+        #rules-modal button {
+            margin-top: 10px;
+            padding: 5px 10px;
+        }
+        #show-rules {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 15px 30px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">点击发射键发射网球，尝试击中飞碟！鼠标/触摸移动十字线。按下“上”键自动瞄准，按下空格键发射。</div>
+    <div id="ammo-count">弹药: 30</div>
+    <div id="fire-button">发射</div>
+    <div id="auto-aim-button">自动瞄准</div>
+    <div id="crosshair"></div>
+    <div id="ammo-prompt">
+        <p>弹药已用尽，输入密钥补充</p>
+        <input type="text" id="key-input">
+        <button id="key-submit">提交</button>
+    </div>
+    <div id="rules-modal">
+        <p>1. 瞄准操作：电脑端鼠标移十字线，按“上”键自动瞄准；手机端触摸屏幕移十字线，点“自动瞄准”键辅助。</p>
+        <p>2. 发射方式：电脑端按空格、手机端点“发射”按钮发射网球。</p>
+        <p>3. 缩放场景：电脑端按 + 键放大、 - 键缩小场景。</p>
+        <p>4. 游戏目标：发射网球击中飞碟得分。</p>
+        <p>5. 弹药规则：弹药有限，耗尽输指定密钥补充。</p>
+        <button id="close-rules">关闭</button>
+    </div>
+    <button id="show-rules">规则说明</button>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x000000);
+        const starGeometry = new THREE.BufferGeometry();
+        const starPositions = [];
+        for (let i = 0; i < 1000; i++) {
+            const x = (Math.random() - 0.5) * 200;
+            const y = (Math.random() - 0.5) * 200;
+            const z = (Math.random() - 0.5) * 200;
+            starPositions.push(x, y, z);
+        }
+        starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
+        const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.05 * Math.random() });
+        const stars = new THREE.Points(starGeometry, starMaterial);
+        scene.add(stars);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 5;
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(1, 1, 1);
+        directionalLight.castShadow = true;
+        scene.add(directionalLight);
+        const barrelGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.5, 32);
+        const barrelMaterial = new THREE.MeshPhongMaterial({ color: 0x808080 });
+        const barrel = new THREE.Mesh(barrelGeometry, barrelMaterial);
+        barrel.position.z = -0.5;
+        camera.add(barrel);
+        const ufos = [];
+        function createUfo() {
+            if (ufos.length >= 5) return;
+            const ufoGeometry = new THREE.TorusGeometry(0.5, 0.2, 16, 100);
+            const ufoMaterial = new THREE.MeshPhongMaterial({ color: 0x00ffff });
+            const ufo = new THREE.Mesh(ufoGeometry, ufoMaterial);
+            ufo.rotation.x = Math.PI / 2;
+            const randomX = (Math.random() - 0.5) * 10;
+            const randomY = (Math.random() - 0.5) * 10;
+            const randomZ = -5 - Math.random() * 5;
+            ufo.position.set(randomX, randomY, randomZ);
+            ufo.castShadow = true;
+            ufo.isDead = false;
+            scene.add(ufo);
+            ufos.push(ufo);
+            return ufo;
+        }
+        for (let i = 0; i < 1; i++) {
+            createUfo();
+        }
+        const crosshairPosition = new THREE.Vector3(0, 0, -10);
+        const tennisBalls = [];
+        function createTennisBall() {
+            const ballGeometry = new THREE.SphereGeometry(0.1, 32, 32);
+            const ballMaterial = new THREE.MeshPhongMaterial({ color: 0x00ff00 });
+            const ball = new THREE.Mesh(ballGeometry, ballMaterial);
+            ball.position.copy(camera.position);
+            ball.castShadow = true;
+            scene.add(ball);
+            tennisBalls.push(ball);
+            return ball;
+        }
+        let lastShotTime = 0;
+        const shotInterval = 500;
+        function shootTennisBall() {
+            const crosshair = document.getElementById('crosshair');
+            const fireButton = document.getElementById('fire-button');
+            const crosshairRect = crosshair.getBoundingClientRect();
+            const fireButtonRect = fireButton.getBoundingClientRect();
+            const isOverFireButton = (
+                crosshairRect.left < fireButtonRect.right &&
+                crosshairRect.right > fireButtonRect.left &&
+                crosshairRect.top < fireButtonRect.bottom &&
+                crosshairRect.bottom > fireButtonRect.top
+            );
+            if (isOverFireButton) {
+                return;
+            }
+            const currentTime = Date.now();
+            if (currentTime - lastShotTime < shotInterval) {
+                return;
+            }
+            if (ammoCount <= 0) {
+                document.getElementById('ammo-prompt').style.display = 'block';
+                return;
+            }
+            ammoCount--;
+            document.getElementById('ammo-count').textContent = `弹药: ${ammoCount}`;
+            const ball = createTennisBall();
+            const direction = new THREE.Vector3();
+            direction.copy(crosshairPosition).sub(ball.position).normalize();
+            ball.velocity = direction.multiplyScalar(0.1);
+            predictHit(ball, direction);
+            const particlesGeometry = new THREE.BufferGeometry();
+            const positions = [];
+            const colors = [];
+            const color = new THREE.Color(0x00ff00);
+            for (let i = 0; i < 100; i++) {
+                const vertex = new THREE.Vector3();
+                vertex.x = ball.position.x;
+                vertex.y = ball.position.y;
+                vertex.z = ball.position.z;
+                positions.push(vertex.x, vertex.y, vertex.z);
+                colors.push(color.r, color.g, color.b);
+            }
+            particlesGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            particlesGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            const particlesMaterial = new THREE.PointsMaterial({ size: 0.05, vertexColors: true });
+            const particles = new THREE.Points(particlesGeometry, particlesMaterial);
+            scene.add(particles);
+            const particleSpeed = 0.1;
+            const particleDirection = direction.clone().normalize();
+            const animateParticles = () => {
+                const positions = particlesGeometry.attributes.position.array;
+                for (let i = 0; i < positions.length; i += 3) {
+                    positions[i] += particleDirection.x * particleSpeed;
+                    positions[i + 1] += particleDirection.y * particleSpeed;
+                    positions[i + 2] += particleDirection.z * particleSpeed;
+                }
+                particlesGeometry.attributes.position.needsUpdate = true;
+                requestAnimationFrame(animateParticles);
+            };
+            animateParticles();
+            lastShotTime = currentTime;
+        }
+        function predictHit(ball, direction) {
+            const steps = 100;
+            const stepSize = 0.1;
+            for (let i = 0; i < steps; i++) {
+                const futurePosition = ball.position.clone().add(direction.clone().multiplyScalar(stepSize * i));
+                for (let j = 0; j < ufos.length; j++) {
+                    const ufo = ufos[j];
+                    if (!ufo.isDead) {
+                        const distance = futurePosition.distanceTo(ufo.position);
+                        if (distance < 0.6) {
+                            ufo.isDead = true;
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+        function checkCollision(ball, target) {
+            const distance = ball.position.distanceTo(target.position);
+            return distance < 0.6;
+        }
+        function createExplosion(position) {
+            const explosionGeometry = new THREE.BufferGeometry();
+            const explosionPositions = [];
+            const explosionColors = [];
+            const color = new THREE.Color(0xffa500);
+            for (let i = 0; i < 200; i++) {
+                const vertex = new THREE.Vector3();
+                vertex.x = position.x + (Math.random() - 0.5) * 0.5;
+                vertex.y = position.y + (Math.random() - 0.5) * 0.5;
+                vertex.z = position.z + (Math.random() - 0.5) * 0.5;
+                explosionPositions.push(vertex.x, vertex.y, vertex.z);
+                explosionColors.push(color.r, color.g, color.b);
+            }
+            explosionGeometry.setAttribute('position', new THREE.Float32BufferAttribute(explosionPositions, 3));
+            explosionGeometry.setAttribute('color', new THREE.Float32BufferAttribute(explosionColors, 3));
+            const explosionMaterial = new THREE.PointsMaterial({ size: 0.05, vertexColors: true });
+            const explosion = new THREE.Points(explosionGeometry, explosionMaterial);
+            scene.add(explosion);
+            const initialOpacity = 1;
+            const fadeOutDuration = 1000;
+            const startTime = Date.now();
+            const animateExplosion = () => {
+                const elapsedTime = Date.now() - startTime;
+                const opacity = initialOpacity - (elapsedTime / fadeOutDuration);
+                if (opacity > 0) {
+                    explosionMaterial.opacity = opacity;
+                    explosionMaterial.transparent = true;
+                    requestAnimationFrame(animateExplosion);
+                } else {
+                    scene.remove(explosion);
+                }
+            };
+            requestAnimationFrame(animateExplosion);
+        }
+        let ammoCount = 30;
+        const fireButton = document.getElementById('fire-button');
+        fireButton.addEventListener('click', shootTennisBall);
+        fireButton.addEventListener('touchstart', shootTennisBall);
+        const crosshair = document.getElementById('crosshair');
+        let lastCrosshairPosition = { left: crosshair.style.left, top: crosshair.style.top };
+        function isCrosshairOverButton() {
+            const crosshairRect = crosshair.getBoundingClientRect();
+            const fireButtonRect = fireButton.getBoundingClientRect();
+            const autoAimButtonRect = document.getElementById('auto-aim-button').getBoundingClientRect();
+            return (
+                (crosshairRect.left < fireButtonRect.right &&
+                    crosshairRect.right > fireButtonRect.left &&
+                    crosshairRect.top < fireButtonRect.bottom &&
+                    crosshairRect.bottom > fireButtonRect.top) ||
+                (crosshairRect.left < autoAimButtonRect.right &&
+                    crosshairRect.right > autoAimButtonRect.left &&
+                    crosshairRect.top < autoAimButtonRect.bottom &&
+                    crosshairRect.bottom > autoAimButtonRect.top)
+            );
+        }
+        document.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = renderer.domElement.getBoundingClientRect();
+            const mouseX = (touch.clientX - rect.left) / rect.width * 2 - 1;
+            const mouseY = -(touch.clientY - rect.top) / rect.height * 2 + 1;
+            const newLeft = touch.clientX;
+            const newTop = touch.clientY;
+            crosshair.style.left = newLeft + 'px';
+            crosshair.style
